@@ -23,7 +23,7 @@ A NixOS flake that provides a complete development environment with Cursor 1.3.9
 
 ```bash
 git clone https://github.com/thinktankmachine/cursor-nixos-flake
-cd cursor-flake
+cd cursor-nixos-flake
 ```
 
 ### 2. Update the SHA256 Hash (if needed)
