@@ -223,9 +223,21 @@ cursor
 
 **Symptoms**: `Error: Cannot find module './build/Debug/keymapping'`
 
-**Solution**: These are cosmetic errors and don't prevent Cursor from working. The enhanced wrapper should reduce these errors.
+**Solution**: These are cosmetic errors and don't prevent Cursor from working. The enhanced wrapper includes additional environment variables to reduce these errors.
 
-#### 3. Library Loading Issues
+#### 3. Update Mechanism Crashes
+
+**Symptoms**: Cursor crashes when trying to update, shows "update available" but fails to install
+
+**Solution**: The enhanced wrapper disables Cursor's auto-update mechanism to prevent crashes. To update Cursor, use the flake's update process instead:
+
+```bash
+# Update to a new version
+./update-cursor-hash.sh
+sudo nixos-rebuild switch --flake .#your-system
+```
+
+#### 4. Library Loading Issues
 
 **Symptoms**: Various library-related errors
 
@@ -238,7 +250,7 @@ sudo nixos-rebuild switch --flake .#your-system
 rm -rf ~/.cache/appimage-run/*
 ```
 
-#### 4. Git Authentication Issues
+#### 5. Git Authentication Issues
 
 **Symptoms**: `fatal: Authentication failed`
 

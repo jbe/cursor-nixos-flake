@@ -1,12 +1,16 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Cursor 1.3.9 AppImage wrapper with enhanced compatibility
+  # Cursor 1.3.9 AppImage wrapper with enhanced compatibility and update handling
   cursorAppImage = pkgs.writeShellScriptBin "cursor" ''
     # Set up environment for better AppImage compatibility
     export APPDIR=""
     export ARGV0=""
     export OWD=""
+    
+    # Disable Cursor's auto-update mechanism to prevent crashes
+    export CURSOR_DISABLE_UPDATE="1"
+    export CURSOR_SKIP_UPDATE_CHECK="1"
     
     # Ensure proper library paths
     export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
@@ -32,13 +36,27 @@ let
       pkgs.at-spi2-core
       pkgs.mesa
       pkgs.alsa-lib
+      pkgs.fuse
     ]}:$LD_LIBRARY_PATH"
     
-    # Run the AppImage with appimage-run
-    exec ${pkgs.appimage-run}/bin/appimage-run ${pkgs.fetchurl {
-      url = "https://downloads.cursor.com/production/54c27320fab08c9f5dd5873f07fca101f7a3e076/linux/x64/Cursor-1.3.9-x86_64.AppImage";
-      sha256 = "076ijp033xjg09aqjhjm6sslvq0hsjga35840m3br722lqpi6jfj";
-    }} "$@"
+    # Set additional environment variables to handle keymapping issues
+    export ELECTRON_DISABLE_SECURITY_WARNINGS="1"
+    export ELECTRON_NO_ATTACH_CONSOLE="1"
+    
+    # Create a temporary directory for Cursor's cache to avoid permission issues
+    export CURSOR_CACHE_DIR="/tmp/cursor-cache-$$"
+    mkdir -p "$CURSOR_CACHE_DIR"
+    
+    # Run the AppImage with appimage-run and additional flags
+    exec ${pkgs.appimage-run}/bin/appimage-run \
+      --no-sandbox \
+      ${pkgs.fetchurl {
+        url = "https://downloads.cursor.com/production/54c27320fab08c9f5dd5873f07fca101f7a3e076/linux/x64/Cursor-1.3.9-x86_64.AppImage";
+        sha256 = "076ijp033xjg09aqjhjm6sslvq0hsjga35840m3br722lqpi6jfj";
+      }} \
+      --disable-updates \
+      --no-update-check \
+      "$@"
   '';
 in
 {
