@@ -1,5 +1,5 @@
 {
-  description = "NixOS configuration with Cursor 1.3.9 AppImage";
+  description = "NixOS configuration with Cursor 1.4.2 AppImage";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -19,7 +19,7 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.liam = import ./home.nix;
+            home-manager.users.user = import ./home.nix;
           }
         ];
       };
@@ -31,7 +31,7 @@
           {
             home-manager.useGlobalPkgs = true;
             home-manager.useUserPackages = true;
-            home-manager.users.liam = import ./test-home.nix;
+            home-manager.users.user = import ./test-home.nix;
           }
         ];
       };
@@ -40,7 +40,7 @@
     # Expose the Cursor package directly
     packages.x86_64-linux.cursor = 
       let
-        cursorConfig = self.nixosConfigurations.cursor-system.config.home-manager.users.liam.home.packages;
+        cursorConfig = self.nixosConfigurations.cursor-system.config.home-manager.users.user.home.packages;
         cursorPackage = builtins.elemAt cursorConfig 12; # Cursor is at index 12
       in
       cursorPackage;

@@ -16,8 +16,8 @@ Get Cursor 1.3.9 running on NixOS in minutes!
    ```
 
 2. **Customize the username** (optional):
-   - Edit `home.nix` and change `home.username = "liam";` to your username
-   - Edit `configuration.nix` and change `users.users.liam` to your username
+   - Edit `home.nix` and change `home.username = "user";` to your username
+- Edit `configuration.nix` and change `users.users.user` to your username
 
 3. **Deploy to your system:**
    ```bash

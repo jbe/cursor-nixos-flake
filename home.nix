@@ -1,67 +1,67 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Cursor 1.3.9 AppImage wrapper with enhanced compatibility and update handling
-  cursorAppImage = pkgs.writeShellScriptBin "cursor" ''
-    # Set up environment for better AppImage compatibility
-    export APPDIR=""
-    export ARGV0=""
-    export OWD=""
-    
-    # Disable Cursor's auto-update mechanism to prevent crashes
-    export CURSOR_DISABLE_UPDATE="1"
-    export CURSOR_SKIP_UPDATE_CHECK="1"
-    
-    # Ensure proper library paths
-    export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
-      pkgs.glib
-      pkgs.gtk3
-      pkgs.cairo
-      pkgs.pango
-      pkgs.atk
-      pkgs.gdk-pixbuf
-      pkgs.xorg.libX11
-      pkgs.xorg.libXcomposite
-      pkgs.xorg.libXcursor
-      pkgs.xorg.libXext
-      pkgs.xorg.libXfixes
-      pkgs.xorg.libXi
-      pkgs.xorg.libXrandr
-      pkgs.xorg.libXrender
-      pkgs.xorg.libXtst
-      pkgs.nss
-      pkgs.nspr
-      pkgs.dbus
-      pkgs.at-spi2-atk
-      pkgs.at-spi2-core
-      pkgs.mesa
-      pkgs.alsa-lib
-      pkgs.fuse
-    ]}:$LD_LIBRARY_PATH"
-    
-    # Set additional environment variables to handle keymapping issues
-    export ELECTRON_DISABLE_SECURITY_WARNINGS="1"
-    export ELECTRON_NO_ATTACH_CONSOLE="1"
-    
-    # Create a temporary directory for Cursor's cache to avoid permission issues
-    export CURSOR_CACHE_DIR="/tmp/cursor-cache-$$"
-    mkdir -p "$CURSOR_CACHE_DIR"
-    
-    # Run the AppImage with appimage-run and additional flags
-    exec ${pkgs.appimage-run}/bin/appimage-run \
-      --no-sandbox \
-      ${pkgs.fetchurl {
-        url = "https://downloads.cursor.com/production/54c27320fab08c9f5dd5873f07fca101f7a3e076/linux/x64/Cursor-1.3.9-x86_64.AppImage";
-        sha256 = "076ijp033xjg09aqjhjm6sslvq0hsjga35840m3br722lqpi6jfj";
-      }} \
-      --disable-updates \
-      --no-update-check \
-      "$@"
-  '';
+  # A robust Nix-native wrapper for the Cursor AppImage using appimageTools
+  cursor =
+    let
+      # First, unpack the AppImage and wrap it with the correct libraries
+      unwrapped = pkgs.appimageTools.wrapType2 {
+        pname = "cursor";
+        version = "1.4.2";
+        src = pkgs.fetchurl {
+          url = "https://downloads.cursor.com/production/07aa3b4519da4feab4761c58da3eeedd253a1671/linux/x64/Cursor-1.4.2-x86_64.AppImage";
+          sha256 = "0gb89li1aklzgc9h8y5rlrnk0n6sb4ikahaml4r9kr6ixadc4b1a";
+        };
+
+        # All the libraries needed by Cursor, which will be added to the RPATH
+        extraPkgs = p: with p; [
+          glib
+          gtk3
+          cairo
+          pango
+          atk
+          gdk-pixbuf
+          xorg.libX11
+          xorg.libXcomposite
+          xorg.libXcursor
+          xorg.libXext
+          xorg.libXfixes
+          xorg.libXi
+          xorg.libXrandr
+          xorg.libXrender
+          xorg.libXtst
+          nss
+          nspr
+          dbus
+          at-spi2-atk
+          at-spi2-core
+          mesa
+          alsa-lib
+          fuse
+          libxkbcommon
+          xorg.libxkbfile
+        ];
+      };
+    in
+    # Then, create a final wrapper script to set the necessary environment variables
+    pkgs.writeShellScriptBin "cursor" ''
+      #!${pkgs.bash}/bin/bash
+      # Set environment variables for compatibility
+      export CURSOR_DISABLE_UPDATE="1"
+      export CURSOR_SKIP_UPDATE_CHECK="1"
+      
+      # Create temporary directories to avoid permission issues
+      export XDG_CACHE_HOME="$(mktemp -d -t cursor-xdg-cache-XXXXXX)"
+      export CURSOR_CACHE_DIR="$(mktemp -d -t cursor-cache-XXXXXX)"
+      
+      # Execute the unwrapped Cursor application, passing all arguments
+      exec "${unwrapped}/bin/cursor" "$@"
+    '';
+
 in
 {
-  home.username = "liam";
-  home.homeDirectory = "/home/liam";
+  home.username = "user";
+  home.homeDirectory = "/home/user";
   home.stateVersion = "23.11";
 
   # Let Home Manager install and manage itself
@@ -69,7 +69,7 @@ in
 
   # Add Cursor to home packages
   home.packages = with pkgs; [
-    cursorAppImage
+    cursor
     # Additional development tools
     nodejs_20
     python3
@@ -118,8 +118,8 @@ in
   # Git configuration
   programs.git = {
     enable = true;
-    userName = "Liam";
-    userEmail = "liam@example.com";
+    userName = "Your Name";
+    userEmail = "your.email@example.com";
     extraConfig = {
       init.defaultBranch = "main";
       pull.rebase = true;
@@ -181,4 +181,4 @@ in
       videos = "$HOME/Videos";
     };
   };
-} 
+}

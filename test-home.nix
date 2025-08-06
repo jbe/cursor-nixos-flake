@@ -1,8 +1,8 @@
 { config, pkgs, lib, ... }:
 
 {
-  home.username = "liam";
-  home.homeDirectory = "/home/liam";
+  home.username = "user";
+  home.homeDirectory = "/home/user";
   home.stateVersion = "23.11";
 
   # Let Home Manager install and manage itself
@@ -58,8 +58,8 @@
   # Git configuration
   programs.git = {
     enable = true;
-    userName = "Liam";
-    userEmail = "liam@example.com";
+    userName = "Your Name";
+    userEmail = "your.email@example.com";
     extraConfig = {
       init.defaultBranch = "main";
       pull.rebase = true;

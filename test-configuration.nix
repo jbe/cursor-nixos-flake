@@ -34,9 +34,9 @@
   };
 
   # User configuration
-  users.users.liam = {
+  users.users.user = {
     isNormalUser = true;
-    description = "Liam";
+    description = "User";
     extraGroups = [ "networkmanager" "wheel" "video" "audio" ];
     packages = with pkgs; [
       # Essential tools

@@ -48,9 +48,9 @@
   };
 
   # User configuration
-  users.users.liam = {
+  users.users.user = {
     isNormalUser = true;
-    description = "Liam";
+    description = "User";
     extraGroups = [ "networkmanager" "wheel" "video" "audio" ];
     # Set explicit password (password: cursor)
     hashedPassword = "$6$thkdqD1PCLUj6X9i$iPEOKRohaybp7XMYpyb7Zjd.Gdcl/weC732CYMlQ4ql7YDY8CLmSIqSUeH/efSnW.Wq9ICn2T5P5RSOqTqNlF0";
