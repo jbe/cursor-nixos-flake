@@ -36,5 +36,13 @@
         ];
       };
     };
+    
+    # Expose the Cursor package directly
+    packages.x86_64-linux.cursor = 
+      let
+        cursorConfig = self.nixosConfigurations.cursor-system.config.home-manager.users.liam.home.packages;
+        cursorPackage = builtins.elemAt cursorConfig 12; # Cursor is at index 12
+      in
+      cursorPackage;
   };
 } 

@@ -1,8 +1,40 @@
 { config, pkgs, lib, ... }:
 
 let
-  # Cursor 1.3.9 AppImage wrapper
+  # Cursor 1.3.9 AppImage wrapper with enhanced compatibility
   cursorAppImage = pkgs.writeShellScriptBin "cursor" ''
+    # Set up environment for better AppImage compatibility
+    export APPDIR=""
+    export ARGV0=""
+    export OWD=""
+    
+    # Ensure proper library paths
+    export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath [
+      pkgs.glib
+      pkgs.gtk3
+      pkgs.cairo
+      pkgs.pango
+      pkgs.atk
+      pkgs.gdk-pixbuf
+      pkgs.xorg.libX11
+      pkgs.xorg.libXcomposite
+      pkgs.xorg.libXcursor
+      pkgs.xorg.libXext
+      pkgs.xorg.libXfixes
+      pkgs.xorg.libXi
+      pkgs.xorg.libXrandr
+      pkgs.xorg.libXrender
+      pkgs.xorg.libXtst
+      pkgs.nss
+      pkgs.nspr
+      pkgs.dbus
+      pkgs.at-spi2-atk
+      pkgs.at-spi2-core
+      pkgs.mesa
+      pkgs.alsa-lib
+    ]}:$LD_LIBRARY_PATH"
+    
+    # Run the AppImage with appimage-run
     exec ${pkgs.appimage-run}/bin/appimage-run ${pkgs.fetchurl {
       url = "https://downloads.cursor.com/production/54c27320fab08c9f5dd5873f07fca101f7a3e076/linux/x64/Cursor-1.3.9-x86_64.AppImage";
       sha256 = "076ijp033xjg09aqjhjm6sslvq0hsjga35840m3br722lqpi6jfj";
