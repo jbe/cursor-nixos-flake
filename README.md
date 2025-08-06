@@ -22,7 +22,7 @@ A NixOS flake that provides a complete development environment with Cursor 1.3.9
 ### 1. Clone the Repository
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/thinktankmachine/cursor-nixos-flake
 cd cursor-flake
 ```
 
