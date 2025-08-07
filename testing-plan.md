@@ -40,7 +40,7 @@ cursor --version
 ```
 
 Expected output:
-- Should display the Cursor version (1.3.9)
+- Should display the Cursor version (1.4.2)
 - No error messages about missing modules
 
 ### 4. Test GUI Launch

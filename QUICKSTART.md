@@ -1,6 +1,6 @@
 # Quick Start Guide
 
-Get Cursor 1.3.9 running on NixOS in minutes!
+Get Cursor 1.4.2 running on NixOS in minutes!
 
 ## Prerequisites
 
@@ -30,7 +30,7 @@ Get Cursor 1.3.9 running on NixOS in minutes!
 
 ## What You Get
 
-- ✅ **Cursor 1.3.9**: Latest AI-first code editor
+- ✅ **Cursor 1.4.2**: Latest AI-first code editor
 - ✅ **Development Environment**: Node.js, Python, Rust, Git
 - ✅ **Modern Shell**: Zsh with Starship prompt
 - ✅ **CLI Tools**: ripgrep, fd, bat, eza, fzf, tmux

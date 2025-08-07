@@ -1,6 +1,6 @@
 # Cursor NixOS Flake
 
-A NixOS flake that provides Cursor 1.3.9 (AI-first code editor) as an AppImage with enhanced compatibility for NixOS systems.
+A NixOS flake that provides Cursor 1.4.2 (AI-first code editor) as an AppImage with enhanced compatibility for NixOS systems.
 
 ## Features
 

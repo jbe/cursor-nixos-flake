@@ -2,7 +2,7 @@
 
 ## Problem Summary
 
-When using Cursor 1.3.9 as an AppImage in a NixOS flake, users encounter errors related to native modules not being found:
+When using Cursor 1.4.2 as an AppImage in a NixOS flake, users encounter errors related to native modules not being found:
 
 ```
 Error: Cannot find module './build/Debug/keymapping'
@@ -36,7 +36,7 @@ Here's the complete updated `cursorAppImage` section for your `home.nix`:
 
 ```nix
 let
-  # Cursor 1.3.9 AppImage wrapper with enhanced compatibility and update handling
+  # Cursor 1.4.2 AppImage wrapper with enhanced compatibility and update handling
   cursorAppImage = pkgs.writeShellScriptBin "cursor" ''
     # Set up environment for better AppImage compatibility
     export APPDIR=""
@@ -103,8 +103,8 @@ let
       --no-sandbox \
       --appimage-extract-and-run \
       ${pkgs.fetchurl {
-        url = "https://downloads.cursor.com/production/54c27320fab08c9f5dd5873f07fca101f7a3e076/linux/x64/Cursor-1.3.9-x86_64.AppImage";
-        sha256 = "076ijp033xjg09aqjhjm6sslvq0hsjga35840m3br722lqpi6jfj";
+                  url = "https://downloads.cursor.com/production/07aa3b4519da4feab4761c58da3eeedd253a1671/linux/x64/Cursor-1.4.2-x86_64.AppImage";
+                  sha256 = "0gb89li1aklzgc9h8y5rlrnk0n6sb4ikahaml4r9kr6ixadc4b1a";
       }} \
       --disable-updates \
       --no-update-check \
