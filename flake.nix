@@ -1,5 +1,5 @@
 {
-  description = "NixOS configuration with Cursor 1.4.2 AppImage";
+  description = "NixOS configuration with Cursor 1.4.3 AppImage";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
