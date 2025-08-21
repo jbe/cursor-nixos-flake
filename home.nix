@@ -7,10 +7,10 @@ let
       # First, unpack the AppImage and wrap it with the correct libraries
       unwrapped = pkgs.appimageTools.wrapType2 {
         pname = "cursor";
-        version = "1.4.3";
+        version = "1.4.5";
         src = pkgs.fetchurl {
-          url = "https://downloads.cursor.com/production/e50823e9ded15fddfd743c7122b4724130c25df8/linux/x64/Cursor-1.4.3-x86_64.AppImage";
-          sha256 = "042x8363gn6yam0hnc8aibaj7m86fyyaldfiswhzv25bgs5cwdvg";
+          url = "https://downloads.cursor.com/production/af58d92614edb1f72bdd756615d131bf8dfa5299/linux/x64/Cursor-1.4.5-x86_64.AppImage";
+          sha256 = "0gh3b5gvzbvs9lnsbgdhgy0352pkzznrrdb13l444qmyf2szaz6q";
         };
 
         # All the libraries needed by Cursor, which will be added to the RPATH

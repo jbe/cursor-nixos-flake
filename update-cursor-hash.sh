@@ -59,43 +59,81 @@ fi
 print_info "Current version: $CURRENT_VERSION"
 echo ""
 
-# Ask user if they want to update to a new version
-read -p "Do you want to update to a new version? (y/N): " -n 1 -r
-echo
+# If a URL argument is provided, use it and skip prompts; otherwise, fallback to interactive flow
+if [[ $# -ge 1 ]]; then
+    NEW_URL="$1"
+    print_info "Using provided URL: $NEW_URL"
 
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    echo ""
-    print_info "To update to a new version:"
-    echo "1. Go to https://cursor.sh/"
-    echo "2. Download the Linux AppImage"
-    echo "3. Copy the download URL"
-    echo "4. Paste it below"
-    echo ""
-    
-    read -p "Enter the new Cursor download URL: " NEW_URL
-    
-    if [[ -z "$NEW_URL" ]]; then
-        print_error "No URL provided"
-        exit 1
-    fi
-    
-    # Extract new version
+    # Extract new version from provided URL
     NEW_VERSION=$(echo "$NEW_URL" | grep -o 'Cursor-[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/Cursor-//')
-    
     if [[ -z "$NEW_VERSION" ]]; then
-        print_warning "Could not extract version from new URL"
+        print_warning "Could not extract version from provided URL"
         NEW_VERSION="unknown"
     fi
-    
     print_info "New version: $NEW_VERSION"
-    
+
     # Update the URL in home.nix
     sed -i "s|$CURRENT_URL|$NEW_URL|g" home.nix
     print_success "Updated URL in home.nix"
-    
+
+    # Update the version field in home.nix if present and we have a parsed version
+    if [[ "$NEW_VERSION" != "unknown" ]]; then
+        CURRENT_VERSION_IN_FILE=$(grep -o 'version = "[^"]*"' home.nix | head -1 | sed 's/version = "//;s/"//')
+        if [[ -n "$CURRENT_VERSION_IN_FILE" ]]; then
+            sed -i "s|version = \"$CURRENT_VERSION_IN_FILE\";|version = \"$NEW_VERSION\";|" home.nix
+            print_success "Updated version in home.nix"
+        fi
+    fi
+
     URL_TO_HASH="$NEW_URL"
 else
-    URL_TO_HASH="$CURRENT_URL"
+    # Ask user if they want to update to a new version
+    read -p "Do you want to update to a new version? (y/N): " -n 1 -r
+    echo
+
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo ""
+        print_info "To update to a new version:"
+        echo "1. Go to https://cursor.sh/"
+        echo "2. Download the Linux AppImage"
+        echo "3. Copy the download URL"
+        echo "4. Paste it below"
+        echo ""
+        
+        read -p "Enter the new Cursor download URL: " NEW_URL
+        
+        if [[ -z "$NEW_URL" ]]; then
+            print_error "No URL provided"
+            exit 1
+        fi
+        
+        # Extract new version
+        NEW_VERSION=$(echo "$NEW_URL" | grep -o 'Cursor-[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/Cursor-//')
+        
+        if [[ -z "$NEW_VERSION" ]]; then
+            print_warning "Could not extract version from new URL"
+            NEW_VERSION="unknown"
+        fi
+        
+        print_info "New version: $NEW_VERSION"
+        
+        # Update the URL in home.nix
+        sed -i "s|$CURRENT_URL|$NEW_URL|g" home.nix
+        print_success "Updated URL in home.nix"
+
+        # Update the version field in home.nix if present and we have a parsed version
+        if [[ "$NEW_VERSION" != "unknown" ]]; then
+            CURRENT_VERSION_IN_FILE=$(grep -o 'version = "[^"]*"' home.nix | head -1 | sed 's/version = "//;s/"//')
+            if [[ -n "$CURRENT_VERSION_IN_FILE" ]]; then
+                sed -i "s|version = \"$CURRENT_VERSION_IN_FILE\";|version = \"$NEW_VERSION\";|" home.nix
+                print_success "Updated version in home.nix"
+            fi
+        fi
+        
+        URL_TO_HASH="$NEW_URL"
+    else
+        URL_TO_HASH="$CURRENT_URL"
+    fi
 fi
 
 echo ""
