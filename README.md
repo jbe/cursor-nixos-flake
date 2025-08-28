@@ -7,8 +7,15 @@ A clean, simple NixOS flake for packaging the [Cursor](https://cursor.sh/) AI-po
 This flake packages Cursor as a Nix package that can be easily integrated into any NixOS system or used standalone.
 
 **Packages:**
-- `packages.x86_64-linux.cursor` - The Cursor editor
+- `packages.x86_64-linux.cursor` - The Cursor editor with full desktop integration
 - `packages.x86_64-linux.default` - Same as cursor (default package)
+
+**Features:**
+- ✅ **Complete Desktop Integration** - Includes icon extraction and desktop entry
+- ✅ **Icon Support** - Automatically extracts and installs Cursor icon from AppImage
+- ✅ **MIME Type Associations** - Supports opening various file types with Cursor
+- ✅ **Version Management** - Built-in version checking (`cursor --version`)
+- ✅ **Update Disabled** - Prevents Cursor's built-in updater (managed by Nix instead)
 
 ## 🚀 Quick Start
 
@@ -96,6 +103,7 @@ The script will automatically:
 - ✅ Fetch and update the SHA256 hash
 - ✅ Test that the package builds correctly
 - ✅ Verify the version is correct
+- ✅ Confirm icon extraction and desktop entry creation
 
 ## 📁 Repository Structure
 
@@ -142,13 +150,16 @@ If you prefer to update manually:
 
 ## 🏗️ Architecture
 
-This flake uses `appimageTools.wrapType2` to properly package the Cursor AppImage with all necessary dependencies. The wrapper:
+This flake uses `appimageTools.extract` and `appimageTools.wrapType2` to properly package the Cursor AppImage with all necessary dependencies and desktop integration. The packaging process:
 
-- Bundles required system libraries
-- Sets up proper environment variables
-- Disables Cursor's built-in updater (managed by Nix instead)
-- Creates temporary directories to avoid permission issues
-- Provides a clean `cursor` command
+- **Extracts AppImage contents** to access embedded icons and metadata
+- **Bundles required system libraries** using appimageTools
+- **Installs icons** to standard XDG locations (`/share/pixmaps`, `/share/icons/hicolor/`)
+- **Creates desktop entry** with proper MIME type associations
+- **Sets up environment variables** for optimal compatibility
+- **Disables built-in updater** (managed by Nix instead)
+- **Creates temporary directories** to avoid permission issues
+- **Provides clean `cursor` command** with version support
 
 ## 🆚 Migration from Complex Structure
 
