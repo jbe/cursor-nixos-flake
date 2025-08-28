@@ -104,6 +104,19 @@ if nix build .#cursor; then
         else
             print_warning "Version mismatch: expected $NEW_VERSION, got $BUILT_VERSION"
         fi
+        
+        # Check that icon and desktop entry were installed
+        if [[ -f "./result/share/pixmaps/cursor.png" ]]; then
+            print_success "Icon successfully extracted and installed!"
+        else
+            print_warning "Icon not found - might not display properly in desktop"
+        fi
+        
+        if [[ -f "./result/share/applications/cursor.desktop" ]]; then
+            print_success "Desktop entry created!"
+        else
+            print_warning "Desktop entry not found"
+        fi
     fi
 else
     print_error "Build failed!"
