@@ -1,129 +1,147 @@
 #!/usr/bin/env bash
 
-# Simple script to update Cursor version in a package-only flake
+set -euo pipefail
 
-set -e
+# Script to manually update Cursor version in the flake
+# Usage: ./update-cursor.sh [version]
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FLAKE_FILE="$SCRIPT_DIR/flake.nix"
 
-print_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-print_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-print_warning() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
-print_error() { echo -e "${RED}[ERROR]${NC} $1"; }
-
-# Check if we're in the right directory
-if [[ ! -f "flake.nix" ]]; then
-    print_error "This script must be run from the cursor-flake directory"
-    exit 1
-fi
-
-print_info "Cursor Package Flake Updater"
-echo ""
-
-# Get current version and URL
-CURRENT_VERSION=$(grep -o 'version = "[^"]*"' flake.nix | head -1 | sed 's/version = "//;s/"//')
-CURRENT_URL=$(grep -o 'https://downloads\.cursor\.com/[^"]*' flake.nix | head -1)
-CURRENT_HASH=$(grep -o 'sha256 = "[^"]*"' flake.nix | head -1 | sed 's/sha256 = "//;s/"//')
-
-print_info "Current version: ${CURRENT_VERSION:-unknown}"
-print_info "Current URL: $CURRENT_URL"
-echo ""
-
-# Handle input
-if [[ $# -ge 1 ]]; then
-    if [[ "$1" =~ ^https:// ]]; then
-        NEW_URL="$1"
-        NEW_VERSION=$(echo "$NEW_URL" | grep -o 'Cursor-[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/Cursor-//')
-    else
-        NEW_VERSION="$1"
-        read -p "Enter the full download URL for version $NEW_VERSION: " NEW_URL
-    fi
-else
-    read -p "Enter new version (e.g., 1.5.6) or full URL: " INPUT
-    if [[ "$INPUT" =~ ^https:// ]]; then
-        NEW_URL="$INPUT"
-        NEW_VERSION=$(echo "$NEW_URL" | grep -o 'Cursor-[0-9]\+\.[0-9]\+\.[0-9]\+' | head -1 | sed 's/Cursor-//')
-    else
-        NEW_VERSION="$INPUT"
-        read -p "Enter the full download URL: " NEW_URL
-    fi
-fi
-
-if [[ -z "$NEW_URL" || -z "$NEW_VERSION" ]]; then
-    print_error "Invalid input"
-    exit 1
-fi
-
-print_info "New version: $NEW_VERSION"
-print_info "New URL: $NEW_URL"
-echo ""
-
-# Get hash
-print_info "Fetching SHA256 hash..."
-HASH=$(nix-prefetch-url "$NEW_URL")
-
-if [[ -z "$HASH" ]]; then
-    print_error "Failed to get hash"
-    exit 1
-fi
-
-print_success "SHA256 hash: $HASH"
-echo ""
-
-# Update flake.nix
-print_info "Updating flake.nix..."
-
-# Update version
-sed -i "s|version = \"[^\"]*\";|version = \"$NEW_VERSION\";|" flake.nix
-print_success "Updated version"
-
-# Update URL
-sed -i "s|$CURRENT_URL|$NEW_URL|g" flake.nix
-print_success "Updated URL"
-
-# Update hash
-sed -i "s|sha256 = \"$CURRENT_HASH\";|sha256 = \"$HASH\";|" flake.nix
-print_success "Updated hash"
-
-# Test build
-print_info "Testing build..."
-if nix build .#cursor; then
-    print_success "Build successful!"
+# Function to get latest version from API redirect
+get_latest_version() {
+    # Get the redirect URL and extract version from the AppImage filename
+    local redirect_url
+    redirect_url=$(curl -s -I "https://api2.cursor.sh/updates/download/golden/linux-x64/cursor/latest" | grep -i location | cut -d' ' -f2 | tr -d '\r\n')
     
-    if [[ -x "./result/bin/cursor" ]]; then
-        BUILT_VERSION=$(./result/bin/cursor --version 2>/dev/null || echo "unknown")
-        print_info "Built version: $BUILT_VERSION"
-        
-        if [[ "$BUILT_VERSION" == "$NEW_VERSION" ]]; then
-            print_success "Version verification passed!"
-        else
-            print_warning "Version mismatch: expected $NEW_VERSION, got $BUILT_VERSION"
-        fi
-        
-        # Check that icon and desktop entry were installed
-        if [[ -f "./result/share/pixmaps/cursor.png" ]]; then
-            print_success "Icon successfully extracted and installed!"
-        else
-            print_warning "Icon not found - might not display properly in desktop"
-        fi
-        
-        if [[ -f "./result/share/applications/cursor.desktop" ]]; then
-            print_success "Desktop entry created!"
-        else
-            print_warning "Desktop entry not found"
-        fi
+    if [[ -n "$redirect_url" ]]; then
+        # Extract version from URL like: .../Cursor-1.7.39-x86_64.AppImage
+        echo "$redirect_url" | grep -o 'Cursor-[0-9]\+\.[0-9]\+\.[0-9]\+' | sed 's/Cursor-//'
+    else
+        echo "Error: Could not get redirect URL"
+        return 1
     fi
-else
-    print_error "Build failed!"
+}
+
+# Function to get current version from flake.nix
+get_current_version() {
+    grep -o 'version = "[^"]*"' "$FLAKE_FILE" | head -1 | cut -d'"' -f2
+}
+
+# Function to update flake.nix
+update_flake() {
+    local version="$1"
+    local appimage_url="https://api2.cursor.sh/updates/download/golden/linux-x64/cursor/$version"
+    
+    echo "Fetching AppImage from: $appimage_url"
+    
+    # Get the actual download URL by following redirects
+    local actual_url
+    actual_url=$(curl -s -I "$appimage_url" | grep -i location | cut -d' ' -f2 | tr -d '\r\n')
+    
+    if [[ -z "$actual_url" ]]; then
+        echo "Error: Could not get actual download URL"
+        return 1
+    fi
+    
+    echo "Actual download URL: $actual_url"
+    
+    # Get SHA256 hash
+    local sha256
+    if command -v nix-prefetch-url >/dev/null 2>&1; then
+        sha256=$(nix-prefetch-url --type sha256 "$actual_url")
+    else
+        echo "Warning: nix-prefetch-url not found. You'll need to update the SHA256 manually."
+        sha256="0000000000000000000000000000000000000000000000000000"
+    fi
+    
+    echo "SHA256: $sha256"
+    
+    # Create backup
+    cp "$FLAKE_FILE" "$FLAKE_FILE.backup"
+    
+    # Update flake.nix - be more specific to avoid replacing nixpkgs URL
+    sed -i "s/version = \"[^\"]*\"  # Will be updated by GitHub Actions/version = \"$version\"/" "$FLAKE_FILE"
+    sed -i "/buildCursor = {/,/};/s|url = \"[^\"]*\"|url = \"$actual_url\"|" "$FLAKE_FILE"
+    sed -i "/buildCursor = {/,/};/s/sha256 = \"[^\"]*\"/sha256 = \"$sha256\"/" "$FLAKE_FILE"
+    
+    echo "Updated flake.nix with version $version"
+}
+
+# Function to test the flake
+test_flake() {
+    echo "Testing flake..."
+    if command -v nix >/dev/null 2>&1; then
+        nix flake check
+        echo "Flake check passed!"
+    else
+        echo "Warning: nix command not found. Skipping flake check."
+    fi
+}
+
+# Main logic
+main() {
+    local target_version="${1:-}"
+    
+    echo "Cursor Flake Updater"
+    echo "==================="
+    
+    # Get current version
+    local current_version
+    current_version=$(get_current_version)
+    echo "Current version: $current_version"
+    
+    # Determine target version
+    if [[ -n "$target_version" ]]; then
+        echo "Target version: $target_version"
+    else
+        echo "Fetching latest version..."
+        target_version=$(get_latest_version)
+        echo "Latest version: $target_version"
+    fi
+    
+    # Check if update is needed
+    if [[ "$target_version" == "$current_version" ]]; then
+        echo "No update needed. Current version is up to date."
+        exit 0
+    fi
+    
+    echo "Update needed: $current_version -> $target_version"
+    read -p "Do you want to proceed with the update? (y/N): " -n 1 -r
+    echo
+    
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        update_flake "$target_version"
+        test_flake
+        echo "Update completed successfully!"
+        echo "You can now commit the changes:"
+        echo "  git add flake.nix"
+        echo "  git commit -m \"Update Cursor to version $target_version\""
+    else
+        echo "Update cancelled."
     exit 1
 fi
+}
 
-echo ""
-print_info "Package updated successfully!"
-print_info "To use in your system: rebuild your main NixOS configuration"
-print_success "Update complete!"
+# Check dependencies
+check_dependencies() {
+    local missing_deps=()
+    
+    if ! command -v curl >/dev/null 2>&1; then
+        missing_deps+=("curl")
+    fi
+    
+    if ! command -v jq >/dev/null 2>&1; then
+        missing_deps+=("jq")
+    fi
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        echo "Error: Missing required dependencies: ${missing_deps[*]}"
+        echo "Please install them and try again."
+    exit 1
+fi
+}
+
+# Run main function
+check_dependencies
+main "$@"
