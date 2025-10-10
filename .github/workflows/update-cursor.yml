@@ -30,6 +30,10 @@ jobs:
         # Run the update script with auto-confirm
         echo "y" | ./update-cursor.sh
     
+    - name: Update flake lock file
+      run: |
+        nix flake update
+    
     - name: Test the updated flake
       run: |
         nix flake check
@@ -45,7 +49,7 @@ jobs:
         
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add flake.nix
+        git add flake.nix flake.lock
         git commit -m "Update Cursor to latest version"
         git push
     
