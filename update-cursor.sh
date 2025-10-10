@@ -61,9 +61,9 @@ update_flake() {
     cp "$FLAKE_FILE" "$FLAKE_FILE.backup"
     
     # Update flake.nix - be more specific to avoid replacing nixpkgs URL
-    sed -i "s/version = \"[^\"]*\"  # Will be updated by GitHub Actions/version = \"$version\"/" "$FLAKE_FILE"
-    sed -i "/buildCursor = {/,/};/s|url = \"[^\"]*\"|url = \"$actual_url\"|" "$FLAKE_FILE"
-    sed -i "/buildCursor = {/,/};/s/sha256 = \"[^\"]*\"/sha256 = \"$sha256\"/" "$FLAKE_FILE"
+    sed -i "s/version = \"[^\"]*\"/version = \"$version\"/" "$FLAKE_FILE"
+    sed -i "/cursor = buildCursor {/,/};/s|url = \"[^\"]*\"|url = \"$actual_url\"|" "$FLAKE_FILE"
+    sed -i "/cursor = buildCursor {/,/};/s/sha256 = \"[^\"]*\"/sha256 = \"$sha256\"/" "$FLAKE_FILE"
     
     echo "Updated flake.nix with version $version"
 }
