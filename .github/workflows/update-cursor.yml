@@ -23,12 +23,18 @@ jobs:
         nix_path: nixpkgs=channel:nixpkgs-unstable
     
     - name: Update Cursor using script
+      id: update-cursor
       run: |
         # Make the script executable
         chmod +x update-cursor.sh
         
-        # Run the update script with auto-confirm
-        echo "y" | ./update-cursor.sh
+        # Run the update script (it will auto-confirm in CI mode)
+        ./update-cursor.sh
+        
+        # Capture version info from script output
+        if [[ -f "$GITHUB_OUTPUT" ]]; then
+          grep "CURSOR_VERSION_INFO=" "$GITHUB_OUTPUT" || echo "CURSOR_VERSION_INFO=no_update" >> "$GITHUB_OUTPUT"
+        fi
     
     - name: Update flake lock file
       run: |
@@ -41,15 +47,35 @@ jobs:
     
     - name: Commit and push changes
       run: |
+        # Get version info from the update step
+        VERSION_INFO="${{ steps.update-cursor.outputs.CURSOR_VERSION_INFO }}"
+        
+        # Only commit if there was an actual update
+        if [[ "$VERSION_INFO" == "no_update" ]]; then
+          echo "No Cursor update needed, skipping commit"
+          exit 0
+        fi
+        
         # Check if there are any changes to commit
         if git diff --quiet; then
           echo "No changes to commit"
           exit 0
         fi
         
+        # Create commit message based on version info
+        if [[ "$VERSION_INFO" == completed:* ]]; then
+          # Extract version from format: completed:old_version:new_version
+          NEW_VERSION=$(echo "$VERSION_INFO" | cut -d: -f3)
+          COMMIT_MSG="Update Cursor to version $NEW_VERSION"
+        else
+          COMMIT_MSG="Update Cursor to latest version"
+        fi
+        
+        echo "Commit message: $COMMIT_MSG"
+        
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add flake.nix flake.lock
-        git commit -m "Update Cursor to latest version"
+        git commit -m "$COMMIT_MSG"
         git push
     

@@ -103,24 +103,34 @@ main() {
     # Check if update is needed
     if [[ "$target_version" == "$current_version" ]]; then
         echo "No update needed. Current version is up to date."
+        echo "CURSOR_VERSION_INFO=no_update" >> "$GITHUB_OUTPUT" 2>/dev/null || true
         exit 0
     fi
     
     echo "Update needed: $current_version -> $target_version"
-    read -p "Do you want to proceed with the update? (y/N): " -n 1 -r
-    echo
+    echo "CURSOR_VERSION_INFO=updated:$current_version:$target_version" >> "$GITHUB_OUTPUT" 2>/dev/null || true
+    
+    # Check if running in CI/GitHub Actions (auto-confirm)
+    if [[ -n "${CI:-}" ]] || [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+        echo "Running in CI mode, auto-confirming update..."
+        REPLY="y"
+    else
+        read -p "Do you want to proceed with the update? (y/N): " -n 1 -r
+        echo
+    fi
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         update_flake "$target_version"
         test_flake
         echo "Update completed successfully!"
+        echo "CURSOR_VERSION_INFO=completed:$current_version:$target_version" >> "$GITHUB_OUTPUT" 2>/dev/null || true
         echo "You can now commit the changes:"
         echo "  git add flake.nix"
         echo "  git commit -m \"Update Cursor to version $target_version\""
     else
         echo "Update cancelled."
-    exit 1
-fi
+        exit 1
+    fi
 }
 
 # Check dependencies
