@@ -8,24 +8,44 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_FILE="$SCRIPT_DIR/flake.nix"
 
-# Function to get latest version from API redirect
+# Function to get latest version from the download page
 get_latest_version() {
-    # Get the redirect URL and extract version from the AppImage filename
-    local redirect_url
-    redirect_url=$(curl -s -I "https://api2.cursor.sh/updates/download/golden/linux-x64/cursor/latest" | grep -i location | cut -d' ' -f2 | tr -d '\r\n')
+    local page_content
+    page_content=$(curl -s "https://cursor.com/download")
     
-    if [[ -n "$redirect_url" ]]; then
-        # Extract version from URL like: .../Cursor-2.3.21-x86_64.AppImage
-        echo "$redirect_url" | grep -o 'Cursor-[0-9]\+\.[0-9]\+\.[0-9]\+' | sed 's/Cursor-//'
-    else
-        echo "Error: Could not get redirect URL" >&2
-        return 1
+    if [[ -n "$page_content" ]]; then
+        # Extract version from pattern like: type-md">2.3 followed by Latest
+        local version
+        version=$(echo "$page_content" | tr '<' '\n' | grep -E 'type-md.*2\.[0-9]' | grep -o '[0-9]\+\.[0-9]\+' | head -1)
+        
+        if [[ -n "$version" ]]; then
+            echo "$version"
+            return 0
+        fi
     fi
+    
+    echo "Error: Could not get latest version from download page" >&2
+    return 1
 }
 
 # Function to get current version from flake.nix
 get_current_version() {
     grep -o 'version = "[^"]*"' "$FLAKE_FILE" | head -1 | cut -d'"' -f2
+}
+
+# Function to normalize version for comparison (extract major.minor)
+normalize_version() {
+    echo "$1" | grep -oP '^\K[0-9]+\.[0-9]+'
+}
+
+# Function to compare versions (returns 0 if equal, 1 if different)
+versions_equal() {
+    local v1="$1"
+    local v2="$2"
+    local norm1 norm2
+    norm1=$(normalize_version "$v1")
+    norm2=$(normalize_version "$v2")
+    [[ "$norm1" == "$norm2" ]]
 }
 
 # Function to get download info for a specific architecture
@@ -191,7 +211,7 @@ main() {
     fi
     
     # Check if update is needed
-    if [[ "$target_version" == "$current_version" ]]; then
+    if versions_equal "$target_version" "$current_version"; then
         echo "No update needed. Current version is up to date."
         if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
             echo "CURSOR_VERSION_INFO=no_update" >> "$GITHUB_OUTPUT"
