@@ -8,19 +8,44 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 FLAKE_FILE="$SCRIPT_DIR/flake.nix"
 
-# Function to get latest version from the download page
+# Function to extract version from download URL
+extract_version_from_url() {
+    local url="$1"
+    local version
+    version=$(echo "$url" | grep -oP 'Cursor-\K[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+    
+    if [[ -n "$version" ]]; then
+        echo "$version"
+        return 0
+    fi
+    
+    echo "Error: Could not extract version from URL: $url" >&2
+    return 1
+}
+
+# Function to get latest version from the download page and API
 get_latest_version() {
     local page_content
     page_content=$(curl -s "https://cursor.com/download")
     
     if [[ -n "$page_content" ]]; then
-        # Extract version from pattern like: type-md">2.3 followed by Latest
-        local version
-        version=$(echo "$page_content" | tr '<' '\n' | grep -E 'type-md.*2\.[0-9]' | grep -o '[0-9]\+\.[0-9]\+' | head -1)
+        local minor_version
+        minor_version=$(echo "$page_content" | tr '<' '\n' | grep -E 'type-md.*2\.[0-9]' | grep -o '[0-9]\+\.[0-9]\+' | head -1)
         
-        if [[ -n "$version" ]]; then
-            echo "$version"
-            return 0
+        if [[ -n "$minor_version" ]]; then
+            local api_url="https://api2.cursor.sh/updates/download/golden/linux-x64/cursor/$minor_version"
+            local actual_url
+            actual_url=$(curl -s -I "$api_url" | grep -i location | cut -d' ' -f2 | tr -d '\r\n')
+            
+            if [[ -n "$actual_url" ]]; then
+                local full_version
+                full_version=$(extract_version_from_url "$actual_url")
+                
+                if [[ -n "$full_version" ]]; then
+                    echo "$full_version"
+                    return 0
+                fi
+            fi
         fi
     fi
     
@@ -42,10 +67,7 @@ normalize_version() {
 versions_equal() {
     local v1="$1"
     local v2="$2"
-    local norm1 norm2
-    norm1=$(normalize_version "$v1")
-    norm2=$(normalize_version "$v2")
-    [[ "$norm1" == "$norm2" ]]
+    [[ "$v1" == "$v2" ]]
 }
 
 # Function to get download info for a specific architecture
@@ -72,6 +94,38 @@ get_download_info() {
     echo "$actual_url"
 }
 
+# Function to get version from resolved download URL for a specific architecture
+get_version_from_url() {
+    local version="$1"
+    local arch="$2"
+    local api_arch
+    
+    if [[ "$arch" == "x86_64-linux" ]]; then
+        api_arch="linux-x64"
+    else
+        api_arch="linux-arm64"
+    fi
+    
+    local api_url="https://api2.cursor.sh/updates/download/golden/$api_arch/cursor/$version"
+    local actual_url
+    actual_url=$(curl -s -I "$api_url" | grep -i location | cut -d' ' -f2 | tr -d '\r\n')
+    
+    if [[ -z "$actual_url" ]]; then
+        echo "Error: Could not get actual download URL for $arch" >&2
+        return 1
+    fi
+    
+    local resolved_version
+    resolved_version=$(extract_version_from_url "$actual_url")
+    
+    if [[ -z "$resolved_version" ]]; then
+        echo "Error: Could not extract version from resolved URL" >&2
+        return 1
+    fi
+    
+    echo "$resolved_version"
+}
+
 # Function to escape special characters for sed replacement
 escape_sed() {
     printf '%s\n' "$1" | sed -e 's/[\/&]/\\&/g'
@@ -83,11 +137,25 @@ update_flake() {
     
     echo "Fetching download URLs for version $version..."
     
+    local resolved_version_x64
+    local resolved_version_arm64
+    resolved_version_x64=$(get_version_from_url "$version" "x86_64-linux") || { echo "Failed to get resolved version for x86_64"; exit 1; }
+    resolved_version_arm64=$(get_version_from_url "$version" "aarch64-linux") || { echo "Failed to get resolved version for aarch64"; exit 1; }
+    
+    if [[ "$resolved_version_x64" != "$resolved_version_arm64" ]]; then
+        echo "Warning: Version mismatch between architectures: x86_64=$resolved_version_x64, aarch64=$resolved_version_arm64" >&2
+        echo "Using x86_64 version: $resolved_version_x64"
+        resolved_version_arm64="$resolved_version_x64"
+    fi
+    
+    local actual_version="$resolved_version_x64"
+    
     local x64_url
     local arm64_url
     x64_url=$(get_download_info "$version" "x86_64-linux") || { echo "Failed to get x86_64 URL"; exit 1; }
     arm64_url=$(get_download_info "$version" "aarch64-linux") || { echo "Failed to get aarch64 URL"; exit 1; }
     
+    echo "Resolved version: $actual_version"
     echo "x86_64 URL: $x64_url"
     echo "aarch64 URL: $arm64_url"
     
@@ -117,8 +185,8 @@ update_flake() {
     x64_url_escaped=$(escape_sed "$x64_url")
     arm64_url_escaped=$(escape_sed "$arm64_url")
     
-    # Update version (first occurrence only, in the let block)
-    if ! sed -i "s/^\([[:space:]]*version = \)\"[^\"]*\";/\1\"$version\";/" "$FLAKE_FILE"; then
+    # Update version (first occurrence only, in the let block) using resolved version
+    if ! sed -i "s/^\([[:space:]]*version = \)\"[^\"]*\";/\1\"$actual_version\";/" "$FLAKE_FILE"; then
         echo "Error: Failed to update version" >&2
         cp "$FLAKE_FILE.backup" "$FLAKE_FILE"
         exit 1
@@ -153,7 +221,7 @@ update_flake() {
     fi
     
     # Verify the updates were applied
-    if ! grep -q "version = \"$version\"" "$FLAKE_FILE"; then
+    if ! grep -q "version = \"$actual_version\"" "$FLAKE_FILE"; then
         echo "Error: Version update verification failed" >&2
         cp "$FLAKE_FILE.backup" "$FLAKE_FILE"
         exit 1
@@ -171,7 +239,7 @@ update_flake() {
         exit 1
     fi
     
-    echo "Updated flake.nix with version $version"
+    echo "Updated flake.nix with version $actual_version"
 }
 
 # Function to test the flake
@@ -202,16 +270,24 @@ main() {
     echo "Current version: $current_version"
     
     # Determine target version
+    local resolved_target_version
     if [[ -n "$target_version" ]]; then
         echo "Target version: $target_version"
+        if [[ "$target_version" =~ ^[0-9]+\.[0-9]+$ ]]; then
+            echo "Minor version specified, resolving to latest patch version..."
+            resolved_target_version=$(get_version_from_url "$target_version" "x86_64-linux") || { echo "Failed to resolve version"; exit 1; }
+            echo "Resolved version: $resolved_target_version"
+        else
+            resolved_target_version="$target_version"
+        fi
     else
         echo "Fetching latest version..."
-        target_version=$(get_latest_version) || { echo "Failed to get latest version"; exit 1; }
-        echo "Latest version: $target_version"
+        resolved_target_version=$(get_latest_version) || { echo "Failed to get latest version"; exit 1; }
+        echo "Latest version: $resolved_target_version"
     fi
     
     # Check if update is needed
-    if versions_equal "$target_version" "$current_version"; then
+    if versions_equal "$resolved_target_version" "$current_version"; then
         echo "No update needed. Current version is up to date."
         if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
             echo "CURSOR_VERSION_INFO=no_update" >> "$GITHUB_OUTPUT"
@@ -219,9 +295,9 @@ main() {
         exit 0
     fi
     
-    echo "Update needed: $current_version -> $target_version"
+    echo "Update needed: $current_version -> $resolved_target_version"
     if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-        echo "CURSOR_VERSION_INFO=updated:$current_version:$target_version" >> "$GITHUB_OUTPUT"
+        echo "CURSOR_VERSION_INFO=updated:$current_version:$resolved_target_version" >> "$GITHUB_OUTPUT"
     fi
     
     # Check if running in CI/GitHub Actions (auto-confirm)
@@ -234,15 +310,21 @@ main() {
     fi
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        update_flake "$target_version"
+        if [[ -n "$target_version" ]]; then
+            update_flake "$target_version"
+        else
+            local minor_version
+            minor_version=$(normalize_version "$resolved_target_version")
+            update_flake "$minor_version"
+        fi
         test_flake
         echo "Update completed successfully!"
         if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
-            echo "CURSOR_VERSION_INFO=completed:$current_version:$target_version" >> "$GITHUB_OUTPUT"
+            echo "CURSOR_VERSION_INFO=completed:$current_version:$resolved_target_version" >> "$GITHUB_OUTPUT"
         fi
         echo "You can now commit the changes:"
         echo "  git add flake.nix"
-        echo "  git commit -m \"Update Cursor to version $target_version\""
+        echo "  git commit -m \"Update Cursor to version $resolved_target_version\""
     else
         echo "Update cancelled."
         exit 1
