@@ -117,6 +117,22 @@
             Keywords=editor;development;programming;ide;
             StartupWMClass=Cursor
             EOF
+
+            # Create URL handler desktop entry (for cursor:// OAuth callbacks)
+            cat > $out/share/applications/cursor-url-handler.desktop << EOF
+            [Desktop Entry]
+            Name=Cursor - URL Handler
+            Comment=AI-powered code editor - URL Handler
+            GenericName=Text Editor
+            Exec=$out/bin/cursor --open-url %U
+            Icon=cursor
+            Type=Application
+            NoDisplay=true
+            StartupNotify=true
+            Categories=Utility;TextEditor;Development;IDE;
+            MimeType=x-scheme-handler/cursor;
+            Keywords=cursor;
+            EOF
           '';
         };
     in
